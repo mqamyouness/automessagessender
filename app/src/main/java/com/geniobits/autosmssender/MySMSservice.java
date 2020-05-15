@@ -3,6 +3,10 @@ package com.geniobits.autosmssender;
 import android.app.IntentService;
 import android.content.Intent;
 import android.content.Context;
+import android.content.IntentFilter;
+import android.content.pm.PackageManager;
+import android.net.Uri;
+import android.os.Looper;
 import android.telephony.SmsManager;
 import android.widget.Toast;
 
@@ -10,8 +14,13 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import com.wafflecopter.multicontactpicker.ContactResult;
 
+import java.net.URL;
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Handler;
+
+import javax.security.auth.callback.PasswordCallback;
 
 /**
  * An {@link IntentService} subclass for handling asynchronous task requests in
@@ -30,6 +39,8 @@ public class MySMSservice extends IntentService {
     private static final String MESSAGE = "com.geniobits.autosmssender.extra.PARAM1";
     private static final String COUNT = "com.geniobits.autosmssender.extra.PARAM2";
     private static final String MOBILE_NUMBER = "com.geniobits.autosmssender.extra.PARAM3";
+    private static final String IS_EACH_WORD = "com.geniobits.autosmssender.extra.PARAM4";
+
     public MySMSservice() {
         super("MySMSservice");
     }
@@ -64,7 +75,7 @@ public class MySMSservice extends IntentService {
      * @see IntentService
      */
     // TODO: Customize helper method
-    public static void startActionWHATSAPP(Context context, String message, String count, List<ContactResult> mobile_numbers) {
+    public static void startActionWHATSAPP(Context context, String message, String count, List<ContactResult> mobile_numbers, Boolean isEachWord) {
 
         List<String> numbers =new ArrayList<String>();
         for(int i = 0;i<mobile_numbers.size();i++){
@@ -77,6 +88,7 @@ public class MySMSservice extends IntentService {
         intent.putExtra(MESSAGE, message);
         intent.putExtra(COUNT, count);
         intent.putExtra(MOBILE_NUMBER,numbersArray);
+        intent.putExtra(IS_EACH_WORD,isEachWord);
         context.startService(intent);
     }
 
@@ -93,7 +105,8 @@ public class MySMSservice extends IntentService {
                 final String message = intent.getStringExtra(MESSAGE);
                 final String count = intent.getStringExtra(COUNT);
                 final String[] mobile_number = intent.getStringArrayExtra(MOBILE_NUMBER);
-                handleActionWHATSAPP(message, count,mobile_number);
+                final boolean isEachWord = intent.getBooleanExtra(IS_EACH_WORD,false);
+                handleActionWHATSAPP(message, count,mobile_number,isEachWord);
             }
         }
     }
@@ -126,9 +139,69 @@ public class MySMSservice extends IntentService {
      * Handle action Baz in the provided background thread with the provided
      * parameters.
      */
-    private void handleActionWHATSAPP(String param1, String param2, String[] mobile_number) {
-        // TODO: Handle action Baz
-        throw new UnsupportedOperationException("Not yet implemented");
+    private void handleActionWHATSAPP(String message, String count, String[] mobile_number, boolean isEachWord) {
+
+        if(isEachWord){
+            try {
+                PackageManager packageManager = getApplicationContext().getPackageManager();
+                if (mobile_number.length != 0) {
+                    for (int j = 0; j < mobile_number.length; j++) {
+
+                        for (int i = 0; i < Integer.parseInt(count.toString()); i++) {
+                            String[] words = message.split(" ");
+                            String number = mobile_number[j];
+                            for(int k=0;k<words.length;k++) {
+                                String url = "https://api.whatsapp.com/send?phone=" + number + "&text=" + URLEncoder.encode(words[k] + "   ", "UTF-8");
+                                Intent whatappIntent = new Intent(Intent.ACTION_VIEW);
+                                whatappIntent.setPackage("com.whatsapp");
+                                whatappIntent.setData(Uri.parse(url));
+                                whatappIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                if (whatappIntent.resolveActivity(packageManager) != null) {
+                                    getApplicationContext().startActivity(whatappIntent);
+                                    Thread.sleep(10000);
+                                    sendBroadcastMessage("Result: " + k);
+                                } else {
+                                    sendBroadcastMessage("Result: WhatsApp Not installed");
+                                }
+                            }
+                        }
+
+                    }
+                }
+            } catch (Exception e) {
+                sendBroadcastMessage("Result: " + e.toString());
+            }
+        }
+        else {
+            try {
+                PackageManager packageManager = getApplicationContext().getPackageManager();
+                if (mobile_number.length != 0) {
+                    for (int j = 0; j < mobile_number.length; j++) {
+
+                        for (int i = 0; i < Integer.parseInt(count.toString()); i++) {
+                            String number = mobile_number[j];
+                            String url = "https://api.whatsapp.com/send?phone=" + number + "&text=" + URLEncoder.encode(message + "   ", "UTF-8");
+                            Intent whatappIntent = new Intent(Intent.ACTION_VIEW);
+                            whatappIntent.setPackage("com.whatsapp");
+                            whatappIntent.setData(Uri.parse(url));
+                            whatappIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            if (whatappIntent.resolveActivity(packageManager) != null) {
+                                getApplicationContext().startActivity(whatappIntent);
+                                Thread.sleep(10000);
+                                sendBroadcastMessage("Result: " + number);
+                            } else {
+                                sendBroadcastMessage("Result: WhatsApp Not installed");
+                            }
+                        }
+
+                    }
+                }
+            } catch (Exception e) {
+                sendBroadcastMessage("Result: " + e.toString());
+            }
+        }
+
+
     }
 
 

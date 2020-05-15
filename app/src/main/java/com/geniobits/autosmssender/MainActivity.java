@@ -11,7 +11,9 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.telephony.SmsManager;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -43,6 +45,7 @@ public class MainActivity extends AppCompatActivity {
     private Button btn_whatsapp;
     private Button btn_choose;
     List<ContactResult> results=new ArrayList<>();
+    private Button btn_whatsapp_each_word;
 
 
     @Override
@@ -56,6 +59,7 @@ public class MainActivity extends AppCompatActivity {
         btn_manual = findViewById(R.id.btn_manual);
         btn_sms = findViewById(R.id.btn_sms);
         btn_whatsapp = findViewById(R.id.btn_whatsapp);
+        btn_whatsapp_each_word = findViewById(R.id.btn_whatsapp2);
         btn_choose = findViewById(R.id.button_choose_contacts);
 
 
@@ -68,23 +72,29 @@ public class MainActivity extends AppCompatActivity {
             @Override public void onPermissionRationaleShouldBeShown(List<PermissionRequest> permissions, PermissionToken token) {/* ... */}
         }).check();
 
+        if(!isAccessibilityOn(getApplicationContext())){
+            Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+        }
+
         btn_choose.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                new MultiContactPicker.Builder(MainActivity.this) //Activity/fragment context
-                        .hideScrollbar(false) //Optional - default: false
-                        .showTrack(true) //Optional - default: true
-                        .searchIconColor(Color.WHITE) //Option - default: White
-                        .setChoiceMode(MultiContactPicker.CHOICE_MODE_MULTIPLE) //Optional - default: CHOICE_MODE_MULTIPLE
-                        .handleColor(ContextCompat.getColor(MainActivity.this, R.color.colorPrimary)) //Optional - default: Azure Blue
-                        .bubbleColor(ContextCompat.getColor(MainActivity.this, R.color.colorPrimary)) //Optional - default: Azure Blue
-                        .bubbleTextColor(Color.WHITE) //Optional - default: White
-                        .setTitleText("Select Contacts") //Optional - default: Select Contacts
-                        .setLoadingType(MultiContactPicker.LOAD_ASYNC) //Optional - default LOAD_ASYNC (wait till all loaded vs stream results)
-                        .limitToColumn(LimitColumn.NONE) //Optional - default NONE (Include phone + email, limiting to one can improve loading time)
+                new MultiContactPicker.Builder(MainActivity.this)
+                        .hideScrollbar(false)
+                        .showTrack(true)
+                        .searchIconColor(Color.WHITE)
+                        .setChoiceMode(MultiContactPicker.CHOICE_MODE_MULTIPLE)
+                        .handleColor(ContextCompat.getColor(MainActivity.this, R.color.colorPrimary))
+                        .bubbleColor(ContextCompat.getColor(MainActivity.this, R.color.colorPrimary))
+                        .bubbleTextColor(Color.WHITE)
+                        .setTitleText("Select Contacts")
+                        .setLoadingType(MultiContactPicker.LOAD_ASYNC)
+                        .limitToColumn(LimitColumn.NONE)
                         .setActivityAnimations(android.R.anim.fade_in, android.R.anim.fade_out,
                                 android.R.anim.fade_in,
-                                android.R.anim.fade_out) //Optional - default: No animation overrides
+                                android.R.anim.fade_out)
                         .showPickerForResult(CONTACT_PICKER_REQUEST);
             }
         });
@@ -110,6 +120,21 @@ public class MainActivity extends AppCompatActivity {
         btn_whatsapp.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+
+                MySMSservice.startActionWHATSAPP(getApplicationContext(),txt_message.getText().toString(),
+                        txt_count.getText().toString(),results,false);
+
+
+            }
+        });
+
+        btn_whatsapp_each_word.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+                MySMSservice.startActionWHATSAPP(getApplicationContext(),txt_message.getText().toString(),
+                        txt_count.getText().toString(),results,true);
+
 
             }
         });
@@ -143,4 +168,32 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(context, result, Toast.LENGTH_SHORT).show();
         }
     };
+
+
+
+    private boolean isAccessibilityOn(Context context) {
+        int accessibilityEnabled = 0;
+        final String service = context.getPackageName () + "/" + WhatAppAccessibilityService.class.getCanonicalName ();
+        try {
+            accessibilityEnabled = Settings.Secure.getInt (context.getApplicationContext ().getContentResolver (), Settings.Secure.ACCESSIBILITY_ENABLED);
+        } catch (Settings.SettingNotFoundException ignored) {  }
+
+        TextUtils.SimpleStringSplitter colonSplitter = new TextUtils.SimpleStringSplitter (':');
+
+        if (accessibilityEnabled == 1) {
+            String settingValue = Settings.Secure.getString (context.getApplicationContext ().getContentResolver (), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+            if (settingValue != null) {
+                colonSplitter.setString (settingValue);
+                while (colonSplitter.hasNext ()) {
+                    String accessibilityService = colonSplitter.next ();
+
+                    if (accessibilityService.equalsIgnoreCase (service)) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
 }
